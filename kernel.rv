@@ -1,0 +1,50 @@
+.section .text
+.global kernel_main
+
+kernel_main:
+    la  a0, msg
+    jal ra, print_string   // 서브루틴 호출 — ra에 복귀주소 저장하고 점프
+    j   halt
+
+// ---------------------------------------------------------
+// print_string: NULL로 끝나는 문자열을 UART로 출력
+// 입력 : a0 = 문자열 시작 주소
+// 복귀 : ra 레지스터의 주소로 (호출자가 jal로 넘겨준 값)
+// ---------------------------------------------------------
+print_string:
+    addi sp, sp, -16     // 스택 프레임 확보 (16바이트 정렬 유지)
+    sd   ra, 8(sp)       // 반환 주소를 스택에 저장
+                          // → 지금은 안 써도 되지만, 이 서브루틴이
+                          //    나중에 다른 서브루틴을 호출하게 되면 필수!
+    li   t0, 0x10000000  // UART 베이스 주소
+
+.print_loop:
+    lb   a2, 0(a0)
+    beqz a2, .print_done
+    sb   a2, 0(t0)
+    addi a0, a0, 1
+    j    .print_loop
+
+.print_done:
+    ld   ra, 8(sp)        // 반환 주소 복원
+    addi sp, sp, 16       // 스택 프레임 해제
+    ret                   // ra로 복귀 → kernel_main의 j halt로 돌아감
+
+halt:
+
+  // halt 를 진짜 종료 하기
+  li t0, 0x100000 // SiFive test finisher MMIO 주소 (QEMU virt 머신 전요)
+  li t1, 0x5555 // 0x5555 = "정상 종료" 매직 값
+  sw t1, 0(t0) // 이 순간 QEMU 프로세스가 스스로 exit(0)
+
+  // 혹시 종료 안 됐을 경우를 대비한 안전 장치 (이론상 도달 안함)
+  j halt
+
+// (매직값) //
+// 0x5555 - 정상 종료
+// 0x3333 - 재부팅
+// 0x3333 | (code << 16) - 특정 코드로 종료 (테스트 프레임워크에서 pass/fail 구분용)
+
+// .section .rodata
+// msg:
+//     .asciz "Hello, RISC-V bare metal! Start...\n"

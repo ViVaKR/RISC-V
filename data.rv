@@ -1,0 +1,4 @@
+.section .rodata
+.global msg
+
+msg: .asciz "Hello, AArch64 bare metal!\n"
