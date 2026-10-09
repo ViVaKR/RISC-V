@@ -1,0 +1,8 @@
+# 빌드 결과물
+bin/
+zig-out/
+.zig-cache/
+zig-cache/
+
+# Rust
+app/RustLibs/rust_core/target/

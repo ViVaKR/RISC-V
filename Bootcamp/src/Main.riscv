@@ -1,0 +1,36 @@
+#-----------------------------------------------------
+# Bootcamp — Entry Point (src/Main.S)
+# Target: RV64 (rv64gc, lp64d) — QEMU virt 베어메탈
+# riscvcli init 으로 생성됨
+#-----------------------------------------------------
+    .include "src/includes/hun.macros.inc"
+
+    CODE_SECTION
+    .global main
+
+main:
+    # --- Prologue ---
+    addi    sp, sp, -16
+    sd      ra, 8(sp)               # Return address 저장
+    sd      s0, 0(sp)               # Frame pointer 저장
+    addi    s0, sp, 16              # Frame pointer 설정
+
+    # --- Main Logic ---
+    PRINT   msg_hello               # UART 로 문자열 출력 (src/libs/platform.S 의 uart_puts)
+
+    # 예) 레지스터 값을 16진수로 찍어보기:
+    #   li      a0, 255
+    #   call    uart_put_hex        # 0x00000000000000ff
+    #   PUTC    0x0a
+
+    li      a0, 0                   # Return value (0) = QEMU 종료 코드
+
+    # --- Epilogue ---
+    ld      ra, 8(sp)               # Return address 복원
+    ld      s0, 0(sp)               # Frame pointer 복원
+    addi    sp, sp, 16
+    ret                             # Boot.S 로 돌아가면 QEMU 가 종료된다
+
+    RODATA_SECTION
+msg_hello:
+    .asciz  "Hello, RISC-V (Bootcamp)!\n"

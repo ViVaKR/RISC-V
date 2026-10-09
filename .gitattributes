@@ -1,0 +1,18 @@
+# ==============================================================================
+# 🪷 GitHub Linguist 폭파 장치: RISC-V 자유의 실리콘 공식 공인 헌법
+# ==============================================================================
+
+# 1. RISC-V 어셈블리 소스코드 (.riscv, .rv)
+*.riscv       linguist-language=Assembly linguist-detectable=true
+*.rv          linguist-language=Assembly linguist-detectable=true
+
+# 2. RISC-V 전용 공용 매크로/인클루드 (.rvinclude, .rvmacros)
+*.rvinclude   linguist-language=Assembly linguist-detectable=true
+*.rvmacros    linguist-language=Assembly linguist-detectable=true
+
+# 3. 베어메탈 링커 스크립트 문법 매핑
+*.ld          linguist-language=Linker-Script
+
+# 4. 바이너리 및 ELF 빌드 산출물은 통계에서 제외 (청정 통계 유지)
+*.elf         linguist-vendored
+*.o           linguist-vendored

@@ -1,0 +1,40 @@
+#-----------------------------------------------------
+# Bootcamp — Boot (src/Boot.S)
+# QEMU virt 머신은 -bios none 일 때 RAM 시작 주소 0x80000000 부터 실행한다.
+# 링커 스크립트(link.ld)가 .text.init 을 맨 앞에 배치하므로 _start 가 그 주소가 된다.
+# 하는 일: gp/sp 설정 -> BSS 0 으로 초기화 -> main 호출 -> 종료 코드로 QEMU 종료
+#-----------------------------------------------------
+    .section .text.init
+    .global _start
+    .balign 4
+
+_start:
+    # gp(global pointer) 설정 — 링커 relaxation 이 gp 기준 주소를 쓰기 때문에 필요
+    .option push
+    .option norelax
+    la      gp, __global_pointer$
+    .option pop
+
+    # hart(코어) 0 번만 진행하고 나머지는 대기시킨다
+    csrr    t0, mhartid
+    bnez    t0, .Lpark
+
+    # 스택 포인터를 RAM 맨 끝으로 (스택은 아래 방향으로 자란다)
+    la      sp, __stack_top
+
+    # BSS 영역을 0 으로 초기화
+    la      t0, __bss_start
+    la      t1, __bss_end
+.Lbss_loop:
+    bgeu    t0, t1, .Lbss_done
+    sd      zero, 0(t0)
+    addi    t0, t0, 8
+    j       .Lbss_loop
+.Lbss_done:
+
+    call    main                    # main 의 반환값(a0)이 종료 코드가 된다
+    call    qemu_exit               # a0 = 종료 코드 (0 이면 성공)
+
+.Lpark:
+    wfi
+    j       .Lpark

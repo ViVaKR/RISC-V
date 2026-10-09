@@ -1,0 +1,95 @@
+#-----------------------------------------------------
+# platform.S — QEMU virt 플랫폼 런타임
+#   uart_putc    : a0 = 문자 하나 출력
+#   uart_puts    : a0 = NUL 로 끝나는 문자열 주소
+#   uart_put_hex : a0 = 값을 0x... 16진수로 출력
+#   uart_put_dec : a0 = 값을 부호 없는 10진수로 출력
+#   qemu_exit    : a0 = 종료 코드 (0 이면 성공) — 돌아오지 않음
+# 모두 호출 규약(a0~a7 인자, t0~t6 임시)을 지키므로 일반 함수처럼 call 하면 된다.
+#-----------------------------------------------------
+    .include "src/includes/hun.macros.inc"
+
+    CODE_SECTION
+
+    .global uart_putc
+uart_putc:
+    li      t0, UART0_BASE
+    UART_WAIT t0, t1
+    sb      a0, 0(t0)
+    ret
+
+    .global uart_puts
+uart_puts:
+    li      t0, UART0_BASE
+.Lputs_next:
+    lbu     t2, 0(a0)
+    beqz    t2, .Lputs_done
+    UART_WAIT t0, t1
+    sb      t2, 0(t0)
+    addi    a0, a0, 1
+    j       .Lputs_next
+.Lputs_done:
+    ret
+
+    .global uart_put_hex
+uart_put_hex:
+    li      t0, UART0_BASE
+    UART_WAIT t0, t1
+    li      t1, 0x30                # 문자 0
+    sb      t1, 0(t0)
+    UART_WAIT t0, t1
+    li      t1, 0x78                # 문자 x
+    sb      t1, 0(t0)
+    li      t2, 60                  # 시프트 양 (최상위 니블부터 출력)
+.Lhex_loop:
+    srl     t3, a0, t2
+    andi    t3, t3, 0xf
+    addi    t3, t3, 0x30            # 0~9 를 문자로
+    li      t4, 0x39
+    ble     t3, t4, .Lhex_emit
+    addi    t3, t3, 39              # 10~15 는 a~f 로 (0x61 - 0x3a)
+.Lhex_emit:
+    UART_WAIT t0, t1
+    sb      t3, 0(t0)
+    addi    t2, t2, -4
+    bgez    t2, .Lhex_loop
+    ret
+
+    .global uart_put_dec
+uart_put_dec:
+    addi    sp, sp, -32
+    sd      ra, 24(sp)
+    addi    t2, sp, 23              # 문자 버퍼 끝 (sp+0 ~ sp+23)
+    sb      zero, 0(t2)             # NUL 종단
+    li      t3, 10
+.Ldec_loop:
+    remu    t4, a0, t3              # 나머지 = 마지막 자릿수
+    divu    a0, a0, t3              # 몫 = 나머지 자릿수들
+    addi    t4, t4, 0x30
+    addi    t2, t2, -1
+    sb      t4, 0(t2)
+    bnez    a0, .Ldec_loop
+    mv      a0, t2
+    call    uart_puts
+    ld      ra, 24(sp)
+    addi    sp, sp, 32
+    ret
+
+# QEMU 의 sifive_test 장치(0x100000)에 값을 쓰면 에뮬레이터가 종료된다.
+#   성공 종료 : 0x5555 를 쓴다 (QEMU 프로세스 종료 코드 0)
+#   실패 종료 : (코드 << 16) | 0x3333 을 쓴다 (QEMU 프로세스 종료 코드 = 코드)
+    .global qemu_exit
+qemu_exit:
+    li      t0, SYSCON_BASE
+    beqz    a0, .Lexit_pass
+    slli    a0, a0, 16
+    li      t1, SYSCON_FAIL
+    or      a0, a0, t1
+    sw      a0, 0(t0)
+    j       .Lexit_hang
+.Lexit_pass:
+    li      t1, SYSCON_PASS
+    sw      t1, 0(t0)
+.Lexit_hang:
+    wfi
+    j       .Lexit_hang
