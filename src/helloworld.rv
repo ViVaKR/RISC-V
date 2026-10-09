@@ -1,0 +1,21 @@
+.section .text
+.global  _start
+
+_start:
+	li a0, 0x10000000  // a0 = UART 베이스 주소 (li = load immediate)
+	la a1, msg         // a1 = 출력할 문자열 시작 주소 (la = load address)
+
+print_loop:
+	lb   a2, 0(a1)   // a2 = *a1 (문자 한 바이트 로드)
+	beqz a2, halt    // a2 == 0 (NULL 문자)이면 halt로 점프
+	sb   a2, 0(a0)   // UART 주소에 그 문자 한 바이트 저장 → 즉시 출력됨!
+	addi a1, a1, 1   // 다음 문자로 포인터 이동
+	j    print_loop  // 무조건 루프 반복
+
+halt:
+	// 베어메탈이라 exit() 시스콜이 없음 → 그냥 무한루프로 멈춤
+	j halt
+
+.section .rodata
+msg:
+	.asciz "Hello, RISC-V bare metal!\n"
